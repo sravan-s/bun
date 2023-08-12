@@ -25,6 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import exp from "constants";
+
 // @internal
 
 export function readableStreamReaderGenericInitialize(reader, stream) {
@@ -1823,4 +1825,76 @@ export function readableStreamDefineLazyIterators(prototype) {
   $Object.$defineProperty(prototype, asyncIterator, { value: createAsyncIterator });
   $Object.$defineProperty(prototype, "values", { value: createValues });
   return prototype;
+}
+
+export function createAsyncFromSyncIterator(syncIteratorRecord) {
+  const iterator = globalThis.Symbol.iterator;
+  const syncIterable = {
+    [iterator]: () => syncIteratorRecord.iterator,
+  };
+
+  const asyncIterator = (async function* () {
+    return yield* syncIterable;
+  }());
+
+  const nextMethod = asyncIterator.next;
+  return { iterator: asyncIterator, nextMethod, done: false };
+
+}
+
+export function getIteratorFromMethod(obj, method) {
+  const iterator = method.$call(obj);
+  if (!$isObject(iterator)) {
+    throw new TypeError(`Iterator must be an object, got ${iterator}`);
+  }
+  const nextMethod = iterator.next;
+  let iteratorRecord = {
+    iterator,
+    next: nextMethod,
+    done: false,
+  };
+  return iteratorRecord;
+}
+
+export function getIterator(obj, kind: 'sync' | 'async') {
+  const asyncIterator = globalThis.Symbol.asyncIterator;
+  const iterator = globalThis.Symbol.iterator;
+  if (kind !== 'sync' && kind !== 'async') {
+    throw new TypeError('kind must be sync or async');
+  }
+
+  let method;
+
+  if (kind === 'async') {
+    method = obj[asyncIterator];
+    if (method === undefined) {
+      const syncMethod = obj[iterator];
+      if (syncMethod === undefined) {
+        throw new TypeError(`Couldnt find iterator or asyncIterator on ${obj}`);
+      }
+      const syncIteratorRecord = getIteratorFromMethod(obj, syncMethod);
+      return createAsyncFromSyncIterator(syncIteratorRecord);
+    }
+  } else {
+    method = obj[iterator];
+  }
+
+  if (method === undefined) {
+    throw new TypeError(`Couldnt find iterator on ${obj}`);
+  }
+
+  return getIteratorFromMethod(obj, method);
+}
+
+export function iteratorNext(iteratorRecord, value) {
+  let result;
+  if (value === undefined) {
+    result = iteratorRecord.iterator.$call(iteratorRecord.nextMethod);
+  } else {
+    result = iteratorRecord.iterator.$call(iteratorRecord.nextMethod, [value]);
+  }
+  if (typeof result !== 'object' || result === null) {
+    throw new TypeError('The iterator.next() method must return an object, got ' + result);
+  }
+  return result;
 }

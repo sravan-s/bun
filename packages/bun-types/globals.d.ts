@@ -2662,6 +2662,9 @@ declare var ReadableStream: {
     underlyingSource?: DirectUnderlyingSource<R>,
     strategy?: QueuingStrategy<R>,
   ): ReadableStream<R>;
+  from<T extends object>(
+    source: AsyncIterable<T> | Iterable<T>,
+  ): ReadableStream<T>;
 };
 
 interface QueuingStrategy<T = any> {

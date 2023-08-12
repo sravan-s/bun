@@ -16,6 +16,8 @@ declare function $assert(check: any, ...message: any[]): void;
 
 /** Place this directly above a function declaration (like a decorator) to make it a getter. */
 declare const $getter: never;
+/** Place this directly above a function declaration (like a decorator) to make it a static. */
+declare const $static: never;
 /** Assign to this directly above a function declaration (like a decorator) to override the function's display name. */
 declare var $overriddenName: string;
 /** ??? */

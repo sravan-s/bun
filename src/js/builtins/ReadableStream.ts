@@ -24,6 +24,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { getIterator, iteratorNext } from "./ReadableStreamInternals";
+
 export function initializeReadableStream(
   this: ReadableStream,
   underlyingSource: UnderlyingSource,
@@ -435,4 +437,49 @@ export function lazyAsyncIterator(this) {
   var prototype = ReadableStream.prototype;
   $readableStreamDefineLazyIterators(prototype);
   return prototype[globalThis.Symbol.asyncIterator].$call(this);
+}
+
+$static
+export function from(source) {
+  if (typeof source !== "object") {
+    throw new TypeError("ReadableStream.from requires an object as first argument");
+  }
+  let stream: ReadableStream<T>;
+
+  const iteratorRecord = getIterator(source, 'async');
+
+  const startAlgorithm = () => {};
+  const pullAlgorithm = async () => {
+    const res = await iteratorRecord.next();
+    if (typeof res !== "object") {
+      throw new TypeError("iterator.next value is not an object");
+    }
+    if (res.done) {
+      $readableStreamDefaultControllerClose(stream);
+    } else {
+      $readableStreamDefaultControllerEnqueue(stream, res.value);
+    }
+  };
+  const cancelAlgorithm = async (reason) => {
+    if (typeof iteratorRecord.return === "undefined") {
+      return undefined;
+    } else {
+      // deno-lint-ignore prefer-primordials
+      const res = await iteratorRecord.return(reason);
+      if (typeof res !== "object") {
+        throw new TypeError("iterator.return value is not an object");
+      } else {
+        return undefined;
+      }
+    };
+  };
+
+  stream = new ReadableStream({
+    start: startAlgorithm,
+    pull: pullAlgorithm,
+    cancel: cancelAlgorithm,
+  }, {
+    highWaterMark: 0,
+  });
+  return stream;
 }
